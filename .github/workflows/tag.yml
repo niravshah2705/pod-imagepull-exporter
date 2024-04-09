@@ -20,7 +20,7 @@ env:
 jobs:
   getversion:
     runs-on:
-      - basic-platform
+      - ubuntu-latest
     outputs:
       bumpVersion: ${{steps.bumpSemver.outputs.new_tag}}
       ARCHS: ${{ env.ARCH }}
@@ -40,7 +40,7 @@ jobs:
   build:
     needs: getversion
     runs-on:
-      - build-platform-large
+      - ubuntu-latest
       - ${{ matrix.arch }}
     strategy:
       matrix:
