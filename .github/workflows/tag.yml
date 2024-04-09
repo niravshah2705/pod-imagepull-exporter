@@ -41,7 +41,7 @@ jobs:
     needs: getversion
     runs-on:
       - ubuntu-latest
-      - ${{ matrix.arch }}
+      # - ${{ matrix.arch }}
     strategy:
       matrix:
         arch: ${{ fromJson(needs.getversion.outputs.ARCHS) }}
