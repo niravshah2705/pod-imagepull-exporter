@@ -1,0 +1,89 @@
+name: build
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, edited, synchronize]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git commit ref to rebuild
+        default: main
+        required: true    
+# Block multiple builds from the same commit running at the same time
+# concurrency: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+env:
+  ARCH: '["x64"]' # '["x64","ARM64"]'
+
+jobs:
+  getversion:
+    runs-on:
+      - basic-platform
+    outputs:
+      bumpVersion: ${{steps.bumpSemver.outputs.new_tag}}
+      ARCHS: ${{ env.ARCH }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'      
+      - name: Bump version and push tag
+        id: bumpSemver
+        uses: anothrNick/github-tag-action@1.67.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+          DRY_RUN: true
+          INITIAL_VERSION: 1.2.0
+  build:
+    needs: getversion
+    runs-on:
+      - build-platform-large
+      - ${{ matrix.arch }}
+    strategy:
+      matrix:
+        arch: ${{ fromJson(needs.getversion.outputs.ARCHS) }}
+    env:
+      REGION: eu-west-1
+      AWS_DEFAULT_REGION: eu-west-1
+      AWS_REGION: eu-west-1
+    outputs:
+      sha: ${{ steps.export.outputs.sha }}
+      commit_id: ${{ steps.export.outputs.commit_id }}     
+      bumpVersion: ${{ needs.getversion.outputs.bumpVersion }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}
+
+      - name: Get current commit ID
+        run: echo "CURRENT_COMMIT_ID=`git rev-parse ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref || github.ref }}`" >> $GITHUB_ENV
+
+      - name: "Export Enviornment variables"
+        id: "export"
+        run: |
+          echo "commit_id=${{env.CURRENT_COMMIT_ID}}" >> $GITHUB_OUTPUT
+          echo "sha=${{github.sha}}" >> $GITHUB_OUTPUT
+
+
+  tagVersion:
+    runs-on:
+      - ubuntu-latest
+    needs: build
+    # if: github.event == 'push' 
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'      
+      - name: Bump version and push tag
+        id: bumpSemver
+        uses: anothrNick/github-tag-action@1.67.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+          DRY_RUN: true
+          INITIAL_VERSION: 1.2.0
