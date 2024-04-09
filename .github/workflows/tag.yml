@@ -37,6 +37,7 @@ jobs:
           DEFAULT_BUMP: patch
           DRY_RUN: true
           INITIAL_VERSION: 1.2.0
+          
   build:
     needs: getversion
     runs-on:
